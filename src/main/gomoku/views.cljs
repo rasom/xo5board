@@ -7,10 +7,11 @@
 (def board-px (* db/board-size cell-size))
 
 (def colors
-  {:board-bg   "#f7f3e3"
-   :grid-line  "#ddd6c1"
+  {:board-bg   "#FBF0D9"
+   :grid-line  "#c0b89e"
+   :cell-border "#c8b898"
    :blue       "#5a9de0"
-   :pink       "#f0a0b8"
+   :pink       "#e8728a"
    :highlight  "rgba(255, 223, 130, 0.5)"
    :btn        "#8a8a8a"
    :btn-hover  "#6a6a6a"
@@ -73,7 +74,7 @@
 
 (def center-idx (+ (* 12 db/board-size) 12))
 
-(defn cell [idx chip winning? game-state]
+(defn cell [idx chip winning? last-move? game-state]
   (let [clickable? (and (= game-state :playing) (nil? chip))
         center?    (= idx center-idx)
         bg         (cond
@@ -81,8 +82,9 @@
                      center?               "rgba(120, 160, 210, 0.45)"
                      (center-region? idx)  "rgba(120, 160, 210, 0.25)"
                      :else                 "transparent")]
-    [:div {:style {:width (str cell-size "px") :height (str cell-size "px")
-                   :border "1px solid" :border-color (:grid-line colors)
+    [:div {:class (when (and last-move? (not winning?)) "last-move")
+           :style {:width (str cell-size "px") :height (str cell-size "px")
+                   :border (str "1px solid " (:cell-border colors))
                    :display "flex" :align-items "center" :justify-content "center"
                    :cursor (if clickable? "pointer" "default")
                    :background bg}
@@ -136,7 +138,7 @@
   (let [scale-ref (r/atom 1)]
     (letfn [(calc-scale []
               (let [available-w (- (.-innerWidth js/window) 20)
-                    available-h (- (.-innerHeight js/window) 60)
+                    available-h (- (.-innerHeight js/window) 80)
                     sx (/ available-w board-total-px)
                     sy (/ available-h board-total-px)]
                 (reset! scale-ref (min sx sy))))]
@@ -150,13 +152,16 @@
           (.removeEventListener js/window "resize" calc-scale))
         :reagent-render
         (fn []
-          (let [board        @(rf/subscribe [:board])
-                winning-cells @(rf/subscribe [:winning-cells])
-                game-state   @(rf/subscribe [:game-state])
-                scale        @scale-ref]
+          (let [board          @(rf/subscribe [:board])
+                winning-cells  @(rf/subscribe [:winning-cells])
+                game-state     @(rf/subscribe [:game-state])
+                show-diags?    @(rf/subscribe [:show-diagonals])
+                last-move-idx  @(rf/subscribe [:last-move-idx])
+                scale          @scale-ref]
             [:div {:style {:display "inline-block"
                            :transform (str "scale(" scale ")")
-                           :transform-origin "top center"}}
+                           :transform-origin "top center"
+                           :margin-bottom "20px"}}
              [:div {:style {:position "relative"}}
               [:div {:style {:display "grid"
                              :grid-template-columns (str "repeat(" db/board-size ", " cell-size "px)")
@@ -165,8 +170,9 @@
                (doall
                 (for [i (range db/total-cells)]
                   ^{:key i}
-                  [cell i (get board i) (contains? winning-cells i) game-state]))]
-              [diagonal-lines-svg]]]))}))))
+                  [cell i (get board i) (contains? winning-cells i) (= i last-move-idx) game-state]))]
+              (when show-diags?
+                [diagonal-lines-svg])]]))}))))
 
 
 ;; --- Control Panel ---
@@ -239,6 +245,15 @@
          [:span {:style {:font-size "14px" :color "#777" :margin-left "12px"}}
           (str "Time: " (format-time elapsed))]
 
+         ;; Diagonals toggle
+         (let [show-diags? @(rf/subscribe [:show-diagonals])]
+           [:label {:style {:display "flex" :align-items "center" :gap "4px"
+                            :margin-left "12px" :font-size "13px" :color "#777"
+                            :cursor "pointer" :user-select "none"}}
+            [:input {:type "checkbox" :checked show-diags?
+                     :on-change #(rf/dispatch [:toggle-diagonals])}]
+            "Diagonals"])
+
          ;; Reset confirmation modal
          (when @show-reset-confirm
            [confirmation-modal "Are you sure you want to reset?"
@@ -260,7 +275,7 @@
 (defn app []
   (let [game-state @(rf/subscribe [:game-state])]
     [:div {:style {:text-align "center" :padding "10px"
-                   :min-height "100vh" :background "#e0e0e0"}}
+                   :min-height "100vh" :background "#222222"}}
      [control-panel]
      [board-component]
      (when (= game-state :setup)

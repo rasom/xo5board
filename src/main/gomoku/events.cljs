@@ -50,6 +50,11 @@
    (assoc db :now (.now js/Date))))
 
 (rf/reg-event-db
+ :toggle-diagonals
+ (fn [db _]
+   (update db :show-diagonals not)))
+
+(rf/reg-event-db
  :select-first-player
  (fn [db [_ player]]
    (assoc db
@@ -76,6 +81,7 @@
           :redo-stack []
           :winner nil
           :winning-cells #{}
+          :last-move-idx nil
           :last-move-time nil
           :last-undo-confirm-time nil)))
 
@@ -88,12 +94,13 @@
    (if (and (= (:game-state db) :playing)
             (nil? (get-in db [:board idx])))
      (let [new-board   (assoc (:board db) idx (:current-player db))
-           history-entry {:board (:board db) :player (:current-player db)}
+           history-entry {:board (:board db) :player (:current-player db) :move-idx (:last-move-idx db)}
            winning-cells (check-win new-board idx)]
        (cond-> (assoc db
                       :board new-board
                       :history (conj (:history db) history-entry)
                       :redo-stack []
+                      :last-move-idx idx
                       :last-move-time (.now js/Date)
                       :now (.now js/Date))
          winning-cells
@@ -108,7 +115,7 @@
 (defn do-undo [db]
   (if (seq (:history db))
     (let [prev       (peek (:history db))
-          redo-entry {:board (:board db) :player (:current-player db)}]
+          redo-entry {:board (:board db) :player (:current-player db) :move-idx (:last-move-idx db)}]
       (assoc db
              :board (:board prev)
              :current-player (:player prev)
@@ -117,6 +124,7 @@
              :game-state :playing
              :winner nil
              :winning-cells #{}
+             :last-move-idx (:move-idx prev)
              :last-move-time (.now js/Date)
              :now (.now js/Date)))
     db))
@@ -137,7 +145,7 @@
  (fn [db _]
    (if (seq (:redo-stack db))
      (let [redo-entry    (peek (:redo-stack db))
-           history-entry {:board (:board db) :player (:current-player db)}
+           history-entry {:board (:board db) :player (:current-player db) :move-idx (:last-move-idx db)}
            new-board     (:board redo-entry)
            ;; Find the cell that changed (the move being redone)
            changed-idx   (first (keep-indexed
@@ -150,6 +158,7 @@
                       :current-player (:player redo-entry)
                       :redo-stack (pop (:redo-stack db))
                       :history (conj (:history db) history-entry)
+                      :last-move-idx (:move-idx redo-entry)
                       :last-move-time (.now js/Date)
                       :now (.now js/Date))
          winning-cells

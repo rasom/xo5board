@@ -14,4 +14,6 @@
    :winning-cells        #{}
    :last-move-time       nil
    :last-undo-confirm-time nil
-   :now                  nil})
+   :now                  nil
+   :show-diagonals       false
+   :last-move-idx        nil})
