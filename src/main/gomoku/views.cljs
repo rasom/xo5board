@@ -137,8 +137,8 @@
 (defn board-component []
   (let [scale-ref (r/atom 1)]
     (letfn [(calc-scale []
-              (let [available-w (- (.-innerWidth js/window) 20)
-                    available-h (- (.-innerHeight js/window) 80)
+              (let [available-w (- (.-innerWidth js/window) 8)
+                    available-h (- (.-innerHeight js/window) 64)
                     sx (/ available-w board-total-px)
                     sy (/ available-h board-total-px)]
                 (reset! scale-ref (min sx sy))))]
@@ -157,22 +157,32 @@
                 game-state     @(rf/subscribe [:game-state])
                 show-diags?    @(rf/subscribe [:show-diagonals])
                 last-move-idx  @(rf/subscribe [:last-move-idx])
-                scale          @scale-ref]
-            [:div {:style {:display "inline-block"
-                           :transform (str "scale(" scale ")")
-                           :transform-origin "top center"
-                           :margin-bottom "20px"}}
-             [:div {:style {:position "relative"}}
-              [:div {:style {:display "grid"
-                             :grid-template-columns (str "repeat(" db/board-size ", " cell-size "px)")
-                             :background (:board-bg colors)
-                             :border (str "2px solid " (:grid-line colors))}}
-               (doall
-                (for [i (range db/total-cells)]
-                  ^{:key i}
-                  [cell i (get board i) (contains? winning-cells i) (= i last-move-idx) game-state]))]
-              (when show-diags?
-                [diagonal-lines-svg])]]))}))))
+                scale          @scale-ref
+                scaled-w       (* board-total-px scale)
+                vw             (.-innerWidth js/window)
+                left-margin    (max 0 (/ (- vw scaled-w) 2))
+                scaled-h       (* board-total-px scale)]
+            [:div {:style {:width (str scaled-w "px")
+                           :height (str scaled-h "px")
+                           :margin-left (str left-margin "px")
+                           :margin-bottom "20px"
+                           :overflow "hidden"}}
+             [:div {:style {:transform (str "scale(" scale ")")
+                            :transform-origin "top left"
+                            :width (str board-total-px "px")
+                            :height (str board-total-px "px")}}
+              [:div {:style {:position "relative"}}
+               [:div {:style {:display "grid"
+                              :grid-template-columns (str "repeat(" db/board-size ", " cell-size "px)")
+                              :background (:board-bg colors)
+                              :border (str "2px solid " (:grid-line colors))}}
+                (doall
+                 (for [i (range db/total-cells)]
+                   ^{:key i}
+                   [cell i (get board i) (contains? winning-cells i) (= i last-move-idx) game-state]))]
+               (when show-diags?
+                 [diagonal-lines-svg])]]]))}))))
+
 
 
 ;; --- Control Panel ---
@@ -199,13 +209,15 @@
             has-history? (seq history)
             has-redo?    (seq redo-stack)
             btn-style    (fn [disabled?]
-                           {:padding "8px 20px" :border "none" :border-radius "6px"
+                           {:padding "10px 20px" :border "none" :border-radius "6px"
                             :color "white" :cursor (if disabled? "default" "pointer")
                             :font-size "14px" :font-weight "bold"
+                            :min-height "44px"
                             :background (if disabled? (:btn-disabled colors) (:btn colors))
-                            :opacity (if disabled? 0.6 1)})]
+                            :opacity (if disabled? 0.6 1)
+                            :touch-action "manipulation"})]
         [:div {:style {:display "flex" :align-items "center" :justify-content "center"
-                       :gap "12px" :padding "12px 0" :flex-wrap "wrap"}}
+                       :gap "8px" :padding "6px 4px" :flex-wrap "wrap"}}
 
          ;; Reset
          [:button {:style (btn-style false)
@@ -229,30 +241,30 @@
 
          ;; Current player indicator
          (when (= game-state :playing)
-           [:div {:style {:display "flex" :align-items "center" :gap "6px"
-                          :margin-left "12px"}}
-            [:div {:style {:width "14px" :height "14px" :border-radius "50%"
+           [:div {:style {:display "flex" :align-items "center" :gap "4px"
+                          :margin-left "6px"}}
+            [:div {:style {:width "12px" :height "12px" :border-radius "50%"
                            :background (get colors current-player)}}]
-            [:span {:style {:font-size "14px" :color "#555"}} "to move"]])
+            [:span {:style {:font-size "12px" :color "#999"}} "to move"]])
 
          ;; Winner message
          (when winner
-           [:span {:style {:font-size "16px" :font-weight "bold" :margin-left "12px"
+           [:span {:style {:font-size "14px" :font-weight "bold" :margin-left "6px"
                            :color (get colors winner)}}
             (str (name winner) " wins!")])
 
          ;; Timer
-         [:span {:style {:font-size "14px" :color "#777" :margin-left "12px"}}
+         [:span {:style {:font-size "12px" :color "#999" :margin-left "6px"}}
           (str "Time: " (format-time elapsed))]
 
          ;; Diagonals toggle
          (let [show-diags? @(rf/subscribe [:show-diagonals])]
-           [:label {:style {:display "flex" :align-items "center" :gap "4px"
-                            :margin-left "12px" :font-size "13px" :color "#777"
+           [:label {:style {:display "flex" :align-items "center" :gap "3px"
+                            :margin-left "6px" :font-size "12px" :color "#999"
                             :cursor "pointer" :user-select "none"}}
             [:input {:type "checkbox" :checked show-diags?
                      :on-change #(rf/dispatch [:toggle-diagonals])}]
-            "Diagonals"])
+            "Diag"])
 
          ;; Reset confirmation modal
          (when @show-reset-confirm
@@ -274,8 +286,8 @@
 
 (defn app []
   (let [game-state @(rf/subscribe [:game-state])]
-    [:div {:style {:text-align "center" :padding "10px"
-                   :min-height "100vh" :background "#222222"}}
+    [:div {:style {:text-align "center" :padding "4px"
+                   :height "100vh" :overflow "hidden" :background "#222222"}}
      [control-panel]
      [board-component]
      (when (= game-state :setup)
