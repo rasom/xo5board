@@ -1,13 +1,17 @@
 (ns gomoku.db)
 
-(def board-size 25)
-(def total-cells (* board-size board-size))
+(def default-board-size 15)
+(def board-sizes [15 19 25])
+
+(defn make-board [size]
+  (vec (repeat (* size size) nil)))
 
 (def default-db
   {:game-state           :setup
    :current-player       :blue
    :first-player         nil
-   :board                (vec (repeat total-cells nil))
+   :board-size           default-board-size
+   :board                (make-board default-board-size)
    :history              []
    :redo-stack           []
    :winner               nil

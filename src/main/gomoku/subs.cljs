@@ -13,6 +13,7 @@
 (rf/reg-sub :now (fn [db] (:now db)))
 (rf/reg-sub :show-diagonals (fn [db] (:show-diagonals db)))
 (rf/reg-sub :last-move-idx (fn [db] (:last-move-idx db)))
+(rf/reg-sub :board-size (fn [db] (:board-size db)))
 
 (rf/reg-sub
  :elapsed-time
